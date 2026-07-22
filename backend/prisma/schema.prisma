@@ -1,2 +1,505 @@
-// Prisma schema placeholder for the Data Governance Dashboard backend.
-// Phase 1 intentionally stops at project structure and config.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  STEWARD
+  ANALYST
+  VIEWER
+}
+
+enum DatasetStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+  FAILED
+}
+
+enum DatasetSourceType {
+  MANUAL_UPLOAD
+  FILE_IMPORT
+  DATABASE_SYNC
+  API_SYNC
+  STREAM_SYNC
+}
+
+enum StorageProvider {
+  LOCAL
+  S3
+  GCS
+  AZURE_BLOB
+  OTHER
+}
+
+enum FileFormat {
+  CSV
+  JSON
+  XLSX
+  PARQUET
+  AVRO
+  XML
+  TXT
+  OTHER
+}
+
+enum IngestionStatus {
+  RECEIVED
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum BusinessCriticality {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum MetadataScope {
+  DATASET
+  VERSION
+  COLUMN
+}
+
+enum MetadataValueType {
+  TEXT
+  NUMBER
+  BOOLEAN
+  DATETIME
+  JSON
+}
+
+enum MetadataSource {
+  MANUAL
+  SYSTEM
+  IMPORTED
+  INFERRED
+}
+
+enum ClassificationScope {
+  DATASET
+  VERSION
+  COLUMN
+}
+
+enum ClassificationSource {
+  MANUAL
+  RULE_BASED
+  ML_INFERRED
+  IMPORTED
+}
+
+enum ClassificationLevel {
+  PUBLIC
+  INTERNAL
+  CONFIDENTIAL
+  RESTRICTED
+}
+
+enum QualityRuleScope {
+  DATASET
+  COLUMN
+  BOTH
+}
+
+enum QualityCategory {
+  COMPLETENESS
+  VALIDITY
+  UNIQUENESS
+  CONSISTENCY
+  FRESHNESS
+  CONFORMITY
+}
+
+enum QualityIssueStatus {
+  PASS
+  FAIL
+  WARN
+}
+
+enum QualityRunStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum QualitySeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum DataConsumerType {
+  HUMAN
+  APPLICATION
+  SERVICE
+  DASHBOARD
+  PIPELINE
+}
+
+enum UsageEventType {
+  VIEW
+  QUERY
+  DOWNLOAD
+  EXPORT
+  REFRESH
+  API_CALL
+  SHARE
+}
+
+model User {
+  id                     String                     @id @default(cuid())
+  email                  String                     @unique
+  fullName               String?
+  role                   UserRole                   @default(VIEWER)
+  isActive               Boolean                    @default(true)
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
+  ownedDatasets          Dataset[]                  @relation("DatasetOwner")
+  stewardedDatasets      Dataset[]                  @relation("DatasetSteward")
+  uploadedVersions       DatasetVersion[]           @relation("VersionUploader")
+  createdQualityRules    QualityRule[]              @relation("QualityRuleCreator")
+  executedQualityRuns    QualityRun[]               @relation("QualityRunExecutor")
+  appliedClassifications ClassificationAssignment[] @relation("ClassificationApplier")
+  performedUsageEvents   UsageEvent[]               @relation("UsageActor")
+  ownedConsumers         DataConsumer[]             @relation("ConsumerOwner")
+}
+
+model Dataset {
+  id              String                     @id @default(cuid())
+  slug            String                     @unique
+  name            String
+  description     String?
+  businessDomain  String?
+  sourceSystem    String?
+  sourceType      DatasetSourceType          @default(MANUAL_UPLOAD)
+  status          DatasetStatus              @default(DRAFT)
+  criticality     BusinessCriticality        @default(MEDIUM)
+  ownerUserId     String
+  stewardUserId   String?
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  archivedAt      DateTime?
+  ownerUser       User                       @relation("DatasetOwner", fields: [ownerUserId], references: [id])
+  stewardUser     User?                      @relation("DatasetSteward", fields: [stewardUserId], references: [id])
+  versions        DatasetVersion[]
+  metadataEntries MetadataEntry[]
+  tags            DatasetTag[]
+  classifications ClassificationAssignment[]
+  qualityRuns     QualityRun[]
+  trustScores     TrustScoreSnapshot[]
+  valueScores     DataValueSnapshot[]
+  usageEvents     UsageEvent[]
+
+  @@index([name])
+  @@index([businessDomain])
+  @@index([sourceType])
+  @@index([status])
+  @@index([criticality])
+}
+
+model DatasetVersion {
+  id               String                     @id @default(cuid())
+  datasetId        String
+  versionNumber    Int
+  originalFileName String
+  storageProvider  StorageProvider
+  storagePath      String
+  fileFormat       FileFormat
+  mimeType         String?
+  fileSizeBytes    BigInt
+  checksum         String?
+  rowCount         BigInt?
+  columnCount      Int?
+  ingestionStatus  IngestionStatus            @default(RECEIVED)
+  processedAt      DateTime?
+  uploadedByUserId String
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+  dataset          Dataset                    @relation(fields: [datasetId], references: [id])
+  uploadedBy       User                       @relation("VersionUploader", fields: [uploadedByUserId], references: [id])
+  columns          DatasetColumn[]
+  metadataEntries  MetadataEntry[]
+  classifications  ClassificationAssignment[]
+  qualityRuns      QualityRun[]
+  trustScores      TrustScoreSnapshot[]
+  valueScores      DataValueSnapshot[]
+  usageEvents      UsageEvent[]
+
+  @@unique([datasetId, versionNumber])
+  @@index([datasetId, createdAt])
+  @@index([datasetId, ingestionStatus])
+}
+
+model DatasetColumn {
+  id               String                     @id @default(cuid())
+  datasetVersionId String
+  ordinal          Int
+  name             String
+  normalizedName   String
+  dataType         String
+  isNullable       Boolean                    @default(true)
+  isPrimaryKey     Boolean                    @default(false)
+  isUnique         Boolean                    @default(false)
+  description      String?
+  profileJson      Json?
+  profiledAt       DateTime?
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+  datasetVersion   DatasetVersion             @relation(fields: [datasetVersionId], references: [id])
+  metadataEntries  MetadataEntry[]
+  classifications  ClassificationAssignment[]
+  qualityIssues    QualityIssue[]
+
+  @@unique([datasetVersionId, ordinal])
+  @@unique([datasetVersionId, normalizedName])
+  @@index([datasetVersionId, name])
+}
+
+model MetadataEntry {
+  id               String            @id @default(cuid())
+  datasetId        String
+  datasetVersionId String?
+  datasetColumnId  String?
+  scope            MetadataScope
+  key              String
+  valueType        MetadataValueType
+  valueText        String?
+  valueNumber      Decimal?
+  valueBoolean     Boolean?
+  valueDateTime    DateTime?
+  valueJson        Json?
+  source           MetadataSource    @default(MANUAL)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  dataset          Dataset           @relation(fields: [datasetId], references: [id])
+  datasetVersion   DatasetVersion?   @relation(fields: [datasetVersionId], references: [id])
+  datasetColumn    DatasetColumn?    @relation(fields: [datasetColumnId], references: [id])
+
+  @@index([datasetId, scope, key])
+  @@index([datasetVersionId])
+  @@index([datasetColumnId])
+}
+
+model Tag {
+  id        String       @id @default(cuid())
+  name      String       @unique
+  slug      String       @unique
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  datasets  DatasetTag[]
+}
+
+model DatasetTag {
+  id        String   @id @default(cuid())
+  datasetId String
+  tagId     String
+  createdAt DateTime @default(now())
+  dataset   Dataset  @relation(fields: [datasetId], references: [id])
+  tag       Tag      @relation(fields: [tagId], references: [id])
+
+  @@unique([datasetId, tagId])
+  @@index([tagId])
+}
+
+model ClassificationLabel {
+  id          String                     @id @default(cuid())
+  code        String                     @unique
+  name        String
+  description String?
+  level       ClassificationLevel
+  sortOrder   Int                        @default(0)
+  isActive    Boolean                    @default(true)
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+  assignments ClassificationAssignment[]
+}
+
+model ClassificationAssignment {
+  id                    String               @id @default(cuid())
+  classificationLabelId String
+  datasetId             String
+  datasetVersionId      String?
+  datasetColumnId       String?
+  scope                 ClassificationScope
+  source                ClassificationSource @default(MANUAL)
+  confidence            Decimal?
+  rationale             String?
+  appliedByUserId       String?
+  appliedAt             DateTime             @default(now())
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  classificationLabel   ClassificationLabel  @relation(fields: [classificationLabelId], references: [id])
+  dataset               Dataset              @relation(fields: [datasetId], references: [id])
+  datasetVersion        DatasetVersion?      @relation(fields: [datasetVersionId], references: [id])
+  datasetColumn         DatasetColumn?       @relation(fields: [datasetColumnId], references: [id])
+  appliedBy             User?                @relation("ClassificationApplier", fields: [appliedByUserId], references: [id])
+
+  @@index([datasetId, scope])
+  @@index([classificationLabelId])
+  @@index([datasetVersionId])
+  @@index([datasetColumnId])
+}
+
+model QualityRule {
+  id              String           @id @default(cuid())
+  code            String           @unique
+  name            String
+  description     String?
+  scope           QualityRuleScope
+  category        QualityCategory
+  severity        QualitySeverity  @default(MEDIUM)
+  isActive        Boolean          @default(true)
+  configJson      Json?
+  createdByUserId String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  createdBy       User?            @relation("QualityRuleCreator", fields: [createdByUserId], references: [id])
+  qualityIssues   QualityIssue[]
+
+  @@index([scope])
+  @@index([category])
+  @@index([isActive])
+}
+
+model QualityRun {
+  id               String           @id @default(cuid())
+  datasetId        String
+  datasetVersionId String
+  status           QualityRunStatus @default(QUEUED)
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  totalChecks      Int              @default(0)
+  passedChecks     Int              @default(0)
+  failedChecks     Int              @default(0)
+  warningChecks    Int              @default(0)
+  qualityScore     Decimal?
+  notes            String?
+  executedByUserId String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  dataset          Dataset          @relation(fields: [datasetId], references: [id])
+  datasetVersion   DatasetVersion   @relation(fields: [datasetVersionId], references: [id])
+  executedBy       User?            @relation("QualityRunExecutor", fields: [executedByUserId], references: [id])
+  issues           QualityIssue[]
+
+  @@index([datasetId, createdAt])
+  @@index([datasetVersionId, createdAt])
+  @@index([status])
+}
+
+model QualityIssue {
+  id              String             @id @default(cuid())
+  qualityRunId    String
+  qualityRuleId   String
+  datasetColumnId String?
+  status          QualityIssueStatus
+  severity        QualitySeverity
+  message         String
+  observedValue   String?
+  expectedValue   String?
+  affectedRows    BigInt?
+  detailsJson     Json?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  qualityRun      QualityRun         @relation(fields: [qualityRunId], references: [id])
+  qualityRule     QualityRule        @relation(fields: [qualityRuleId], references: [id])
+  datasetColumn   DatasetColumn?     @relation(fields: [datasetColumnId], references: [id])
+
+  @@index([qualityRunId])
+  @@index([qualityRuleId])
+  @@index([datasetColumnId])
+  @@index([status])
+  @@index([severity])
+}
+
+model TrustScoreSnapshot {
+  id                  String         @id @default(cuid())
+  datasetId           String
+  datasetVersionId    String
+  overallScore        Decimal
+  qualityScore        Decimal
+  completenessScore   Decimal
+  freshnessScore      Decimal
+  usageScore          Decimal
+  classificationScore Decimal
+  formulaVersion      String
+  calculatedAt        DateTime
+  createdAt           DateTime       @default(now())
+  dataset             Dataset        @relation(fields: [datasetId], references: [id])
+  datasetVersion      DatasetVersion @relation(fields: [datasetVersionId], references: [id])
+
+  @@index([datasetId, calculatedAt])
+  @@index([datasetVersionId, calculatedAt])
+}
+
+model DataValueSnapshot {
+  id                       String         @id @default(cuid())
+  datasetId                String
+  datasetVersionId         String
+  overallScore             Decimal
+  businessCriticalityScore Decimal
+  qualityScore             Decimal
+  freshnessScore           Decimal
+  usageScore               Decimal
+  formulaVersion           String
+  calculatedAt             DateTime
+  createdAt                DateTime       @default(now())
+  dataset                  Dataset        @relation(fields: [datasetId], references: [id])
+  datasetVersion           DatasetVersion @relation(fields: [datasetVersionId], references: [id])
+
+  @@index([datasetId, calculatedAt])
+  @@index([datasetVersionId, calculatedAt])
+}
+
+model DataConsumer {
+  id          String           @id @default(cuid())
+  name        String
+  type        DataConsumerType
+  externalId  String?          @unique
+  description String?
+  ownerUserId String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  ownerUser   User?            @relation("ConsumerOwner", fields: [ownerUserId], references: [id])
+  usageEvents UsageEvent[]
+
+  @@index([type])
+  @@index([name])
+}
+
+model UsageEvent {
+  id                String          @id @default(cuid())
+  datasetId         String
+  datasetVersionId  String?
+  consumerId        String
+  performedByUserId String?
+  eventType         UsageEventType
+  occurredAt        DateTime        @default(now())
+  rowsRead          BigInt?
+  bytesRead         BigInt?
+  durationMs        Int?
+  queryFingerprint  String?
+  queryText         String?
+  eventJson         Json?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  dataset           Dataset         @relation(fields: [datasetId], references: [id])
+  datasetVersion    DatasetVersion? @relation(fields: [datasetVersionId], references: [id])
+  consumer          DataConsumer    @relation(fields: [consumerId], references: [id])
+  performedBy       User?           @relation("UsageActor", fields: [performedByUserId], references: [id])
+
+  @@index([datasetId, occurredAt])
+  @@index([datasetVersionId, occurredAt])
+  @@index([consumerId, occurredAt])
+  @@index([eventType, occurredAt])
+}

@@ -8,15 +8,15 @@
     "test": "jest --passWithNoTests"
   },
   "dependencies": {
-    "@prisma/client": "^7.9.0",
+    "@prisma/client": "^6.19.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "prisma": "^6.19.3"
   },
   "devDependencies": {
     "jest": "^30.4.2",
     "nodemon": "^3.1.14",
-    "prisma": "^7.9.0",
     "supertest": "^7.2.2"
   }
 }
