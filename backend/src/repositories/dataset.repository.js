@@ -125,9 +125,74 @@ async function findDatasetWithLatestVersionValueContext(datasetId) {
   });
 }
 
+async function findDatasetsForDashboard({ search } = {}) {
+  const where = search
+    ? {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { slug: { contains: search, mode: 'insensitive' } },
+          { businessDomain: { contains: search, mode: 'insensitive' } },
+          { sourceSystem: { contains: search, mode: 'insensitive' } },
+        ],
+      }
+    : {};
+
+  return prisma.dataset.findMany({
+    where,
+    orderBy: {
+      updatedAt: 'desc',
+    },
+    include: {
+      versions: {
+        orderBy: {
+          versionNumber: 'desc',
+        },
+        take: 1,
+        include: {
+          columns: {
+            orderBy: {
+              ordinal: 'asc',
+            },
+            include: {
+              classifications: {
+                orderBy: {
+                  appliedAt: 'desc',
+                },
+                take: 1,
+                include: {
+                  classificationLabel: true,
+                },
+              },
+            },
+          },
+          qualityRuns: {
+            orderBy: {
+              createdAt: 'desc',
+            },
+            take: 1,
+          },
+          trustScores: {
+            orderBy: {
+              calculatedAt: 'desc',
+            },
+            take: 1,
+          },
+          valueScores: {
+            orderBy: {
+              calculatedAt: 'desc',
+            },
+            take: 1,
+          },
+        },
+      },
+    },
+  });
+}
+
 module.exports = {
   createDatasetWithVersion,
   findDatasetWithLatestVersion,
   findDatasetWithLatestVersionQualityContext,
   findDatasetWithLatestVersionValueContext,
+  findDatasetsForDashboard,
 };

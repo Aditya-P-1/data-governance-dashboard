@@ -1,2 +1,6 @@
-// Dataset service placeholder for future API calls.
-// Business logic will be added in the next phase.
+import apiClient from './apiClient';
+
+export async function getDashboardDatasets(params = {}) {
+  const response = await apiClient.get('/datasets/dashboard', { params });
+  return response.data.data;
+}

@@ -1,2 +1,2 @@
 // Upload service placeholder for future API calls.
-// Business logic will be added in the next phase.
+// Upload flow will remain in a later phase.
