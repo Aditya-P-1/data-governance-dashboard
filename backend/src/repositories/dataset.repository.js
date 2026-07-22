@@ -28,6 +28,13 @@ async function findDatasetWithLatestVersion(datasetId) {
           versionNumber: 'desc',
         },
         take: 1,
+        include: {
+          columns: {
+            orderBy: {
+              ordinal: 'asc',
+            },
+          },
+        },
       },
     },
   });
