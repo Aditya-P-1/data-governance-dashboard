@@ -1,5 +1,5 @@
 function errorHandler(err, req, res) {
-  const statusCode = err.statusCode || 500;
+  const statusCode = err.statusCode || err.status || 500;
   const message =
     statusCode === 500 && !err.isOperational ? 'Internal server error' : err.message || 'Error';
 

@@ -41,5 +41,16 @@ export default [
       globals: globals.node,
     },
   },
+  {
+    files: ['backend/**/*.test.{js,cjs,mjs}', 'backend/**/*.spec.{js,cjs,mjs}', 'backend/__tests__/**/*.{js,cjs,mjs}'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'script',
+      globals: {
+        ...globals.node,
+        ...globals.jest,
+      },
+    },
+  },
   eslintConfigPrettier,
 ];
