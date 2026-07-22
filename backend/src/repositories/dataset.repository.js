@@ -33,6 +33,17 @@ async function findDatasetWithLatestVersion(datasetId) {
             orderBy: {
               ordinal: 'asc',
             },
+            include: {
+              classifications: {
+                orderBy: {
+                  appliedAt: 'desc',
+                },
+                take: 1,
+                include: {
+                  classificationLabel: true,
+                },
+              },
+            },
           },
         },
       },
