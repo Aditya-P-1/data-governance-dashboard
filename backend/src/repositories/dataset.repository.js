@@ -17,6 +17,23 @@ async function createDatasetWithVersion({ datasetData, versionData }) {
   });
 }
 
+async function findDatasetWithLatestVersion(datasetId) {
+  return prisma.dataset.findUnique({
+    where: {
+      id: datasetId,
+    },
+    include: {
+      versions: {
+        orderBy: {
+          versionNumber: 'desc',
+        },
+        take: 1,
+      },
+    },
+  });
+}
+
 module.exports = {
   createDatasetWithVersion,
+  findDatasetWithLatestVersion,
 };
