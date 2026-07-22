@@ -4,6 +4,10 @@ const {
   readDataset,
   discoverSchema,
 } = require('../controllers/dataset.controller');
+const {
+  calculateValueScore,
+  trackView,
+} = require('../controllers/datasetValue.controller');
 const { requireUploadFile, upload } = require('../middlewares/upload.middleware');
 
 const router = express.Router();
@@ -11,5 +15,7 @@ const router = express.Router();
 router.post('/upload', upload.single('file'), requireUploadFile, createDatasetFromUpload);
 router.post('/:datasetId/read', readDataset);
 router.post('/:datasetId/discover-schema', discoverSchema);
+router.post('/:datasetId/track-view', trackView);
+router.post('/:datasetId/calculate-value-score', calculateValueScore);
 
 module.exports = router;
