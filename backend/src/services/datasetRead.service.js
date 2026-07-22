@@ -7,6 +7,7 @@ const {
 } = require('../utils/datasetRead.utils');
 const prisma = require('../config/prisma');
 const { replaceDatasetMetadata } = require('../repositories/metadata.repository');
+const { toJsonSafe } = require('../utils/json.utils');
 const {
   findDatasetWithLatestVersion,
 } = require('../repositories/dataset.repository');
@@ -41,7 +42,7 @@ function buildVersionMetadata({ headers, dataRows, rowCount, columnCount, parsed
       key: 'rows_preview',
       scope: 'VERSION',
       valueType: 'JSON',
-      valueJson: dataRows.slice(0, 10),
+      valueJson: toJsonSafe(dataRows.slice(0, 10)),
       source: 'SYSTEM',
     },
     {

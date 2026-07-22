@@ -1,5 +1,6 @@
 const { uploadDataset } = require('../services/datasetUpload.service');
 const { readUploadedDataset } = require('../services/datasetRead.service');
+const { discoverDatasetSchema } = require('../services/datasetSchema.service');
 
 async function createDatasetFromUpload(req, res, next) {
   try {
@@ -19,7 +20,17 @@ async function readDataset(req, res, next) {
   }
 }
 
+async function discoverSchema(req, res, next) {
+  try {
+    const metadata = await discoverDatasetSchema(req.params.datasetId);
+    return res.success(metadata);
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   createDatasetFromUpload,
   readDataset,
+  discoverSchema,
 };
