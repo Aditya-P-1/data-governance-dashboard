@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { getDashboardDatasets } from '../services/datasetService';
+import { buildDatasetDetailsPath } from '../utils/routes';
 
 const SORT_OPTIONS = [
   { value: 'updatedAt', label: 'Updated' },
@@ -83,6 +84,7 @@ export default function DashboardPage() {
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const sortBy = searchParams.get('sortBy') || 'updatedAt';
   const sortOrder = searchParams.get('sortOrder') || 'desc';
@@ -265,7 +267,9 @@ export default function DashboardPage() {
         <div className="dashboard__hero-actions">
           <div className="dashboard__hero-chip">
             <span className="dashboard__hero-chip-label">Showing</span>
-            <strong>{pagination ? `${pagination.page} / ${pagination.totalPages || 1}` : '1 / 1'}</strong>
+            <strong>
+              {pagination ? `${pagination.page} / ${pagination.totalPages || 1}` : '1 / 1'}
+            </strong>
           </div>
           <Link className="button" to="/upload">
             Upload Dataset
@@ -274,7 +278,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="dashboard__metrics">
-        {metricCards.map(card => (
+        {metricCards.map((card) => (
           <MetricCard key={card.label} {...card} />
         ))}
       </div>
@@ -288,7 +292,7 @@ export default function DashboardPage() {
                 className="input"
                 type="search"
                 value={query}
-                onChange={event => setQuery(event.target.value)}
+                onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search by name, slug, domain, or source system"
               />
             </label>
@@ -300,9 +304,9 @@ export default function DashboardPage() {
               <select
                 className="input"
                 value={sortBy}
-                onChange={event => setSortField(event.target.value)}
+                onChange={(event) => setSortField(event.target.value)}
               >
-                {SORT_OPTIONS.map(option => (
+                {SORT_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -319,9 +323,9 @@ export default function DashboardPage() {
               <select
                 className="input"
                 value={limit}
-                onChange={event => setLimit(Number(event.target.value))}
+                onChange={(event) => setLimit(Number(event.target.value))}
               >
-                {LIMIT_OPTIONS.map(option => (
+                {LIMIT_OPTIONS.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
@@ -371,32 +375,41 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {datasets.map(row => (
-                  <tr key={row.dataset.id}>
+                {datasets.map((row) => (
+                  <tr
+                    key={row.dataset.id}
+                    onClick={() => navigate(buildDatasetDetailsPath(row.dataset.id))}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <td>
                       <div className="dataset-cell">
-                        <Link className="dataset-cell__name" to={`/datasets/${row.dataset.id}`}>
-                          {row.dataset.name}
-                        </Link>
+                        <span className="dataset-cell__name">{row.dataset.name}</span>
                         <span className="dataset-cell__meta">{row.dataset.slug}</span>
+
                         <div className="dataset-cell__tags">
                           <span className="tag">{row.dataset.sourceType}</span>
                           <span className="tag">{row.dataset.criticality}</span>
                         </div>
                       </div>
                     </td>
+
                     <td>{formatNumber(row.metrics.rows)}</td>
                     <td>{formatNumber(row.metrics.columns)}</td>
+
                     <td>
                       <ScorePill value={row.metrics.quality} />
                     </td>
+
                     <td>
                       <ScorePill value={row.metrics.trust} />
                     </td>
+
                     <td>
                       <ScorePill value={row.metrics.value} />
                     </td>
+
                     <td>{formatNumber(row.metrics.views)}</td>
+
                     <td>
                       <span
                         className={`count-pill${
@@ -406,6 +419,7 @@ export default function DashboardPage() {
                         {formatNumber(row.metrics.sensitiveColumns)}
                       </span>
                     </td>
+
                     <td>{formatDate(row.dataset.updatedAt)}</td>
                   </tr>
                 ))}
@@ -417,7 +431,8 @@ export default function DashboardPage() {
         {pagination && totalPages > 1 ? (
           <div className="pagination">
             <p className="pagination__summary">
-              Page {pagination.page} of {pagination.totalPages} · {formatNumber(pagination.total)} total datasets
+              Page {pagination.page} of {pagination.totalPages} · {formatNumber(pagination.total)}{' '}
+              total datasets
             </p>
             <div className="pagination__controls">
               <button

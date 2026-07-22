@@ -14,6 +14,7 @@ export default function AppRouter() {
           <Route index element={<DashboardPage />} />
           <Route path={routes.upload} element={<UploadPage />} />
           <Route path={routes.datasetDetails} element={<DatasetDetailsPage />} />
+          <Route path="/datasets/:datasetId" element={<DatasetDetailsPage />} />
         </Route>
         <Route path="/dashboard" element={<Navigate to={routes.dashboard} replace />} />
         <Route path="*" element={<NotFoundPage />} />

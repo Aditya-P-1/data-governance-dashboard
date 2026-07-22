@@ -4,7 +4,6 @@ import { routes } from '../utils/routes';
 const navItems = [
   { label: 'Dashboard', to: routes.dashboard, end: true },
   { label: 'Upload', to: routes.upload, end: true },
-  { label: 'Dataset Details', to: '/datasets/sample-dataset', end: false },
 ];
 
 export default function Sidebar() {

@@ -1,5 +1,18 @@
 const prisma = require('../config/prisma');
 
+function buildDatasetIdentifierWhere(datasetIdentifier) {
+  return {
+    OR: [
+      {
+        id: datasetIdentifier,
+      },
+      {
+        slug: datasetIdentifier,
+      },
+    ],
+  };
+}
+
 async function createDatasetWithVersion({ datasetData, versionData }) {
   return prisma.$transaction(async transaction => {
     const dataset = await transaction.dataset.create({
@@ -18,10 +31,8 @@ async function createDatasetWithVersion({ datasetData, versionData }) {
 }
 
 async function findDatasetWithLatestVersion(datasetId) {
-  return prisma.dataset.findUnique({
-    where: {
-      id: datasetId,
-    },
+  return prisma.dataset.findFirst({
+    where: buildDatasetIdentifierWhere(datasetId),
     include: {
       versions: {
         orderBy: {
@@ -41,6 +52,7 @@ async function findDatasetWithLatestVersion(datasetId) {
                 take: 1,
                 include: {
                   classificationLabel: true,
+                  appliedBy: true,
                 },
               },
             },
@@ -52,10 +64,8 @@ async function findDatasetWithLatestVersion(datasetId) {
 }
 
 async function findDatasetWithLatestVersionQualityContext(datasetId) {
-  return prisma.dataset.findUnique({
-    where: {
-      id: datasetId,
-    },
+  return prisma.dataset.findFirst({
+    where: buildDatasetIdentifierWhere(datasetId),
     include: {
       versions: {
         orderBy: {
@@ -102,10 +112,8 @@ async function findDatasetWithLatestVersionQualityContext(datasetId) {
 }
 
 async function findDatasetWithLatestVersionValueContext(datasetId) {
-  return prisma.dataset.findUnique({
-    where: {
-      id: datasetId,
-    },
+  return prisma.dataset.findFirst({
+    where: buildDatasetIdentifierWhere(datasetId),
     include: {
       versions: {
         orderBy: {
@@ -114,6 +122,66 @@ async function findDatasetWithLatestVersionValueContext(datasetId) {
         take: 1,
         include: {
           trustScores: {
+            orderBy: {
+              calculatedAt: 'desc',
+            },
+            take: 1,
+          },
+        },
+      },
+    },
+  });
+}
+
+async function findDatasetWithLatestVersionDetails(datasetId) {
+  return prisma.dataset.findFirst({
+    where: buildDatasetIdentifierWhere(datasetId),
+    include: {
+      versions: {
+        orderBy: {
+          versionNumber: 'desc',
+        },
+        take: 1,
+        include: {
+          columns: {
+            orderBy: {
+              ordinal: 'asc',
+            },
+            include: {
+              classifications: {
+                orderBy: {
+                  appliedAt: 'desc',
+                },
+                take: 1,
+                include: {
+                  classificationLabel: true,
+                },
+              },
+            },
+          },
+          qualityRuns: {
+            orderBy: {
+              createdAt: 'desc',
+            },
+            take: 1,
+            include: {
+              issues: {
+                orderBy: {
+                  createdAt: 'asc',
+                },
+                include: {
+                  qualityRule: true,
+                },
+              },
+            },
+          },
+          trustScores: {
+            orderBy: {
+              calculatedAt: 'desc',
+            },
+            take: 1,
+          },
+          valueScores: {
             orderBy: {
               calculatedAt: 'desc',
             },
@@ -194,5 +262,6 @@ module.exports = {
   findDatasetWithLatestVersion,
   findDatasetWithLatestVersionQualityContext,
   findDatasetWithLatestVersionValueContext,
+  findDatasetWithLatestVersionDetails,
   findDatasetsForDashboard,
 };
