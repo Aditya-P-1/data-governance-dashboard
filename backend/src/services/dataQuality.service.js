@@ -53,7 +53,7 @@ function toResponseIssue(issue) {
   };
 }
 
-function buildMetricIssues(summary, rules, dataset, version) {
+function buildMetricIssues(summary, rules) {
   const missingRate = summary.missingRate;
   const duplicateRate = summary.duplicateRate;
   const invalidRate = summary.invalidRate;
@@ -168,7 +168,7 @@ async function analyzeDatasetQuality(datasetId) {
       columns: version.columns,
     });
 
-    const issues = buildMetricIssues(summary, rules, dataset, version).map(issue => ({
+    const issues = buildMetricIssues(summary, rules).map(issue => ({
       ...issue,
       qualityRunId: null,
     }));

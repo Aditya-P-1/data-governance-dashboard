@@ -51,7 +51,58 @@ async function findDatasetWithLatestVersion(datasetId) {
   });
 }
 
+async function findDatasetWithLatestVersionQualityContext(datasetId) {
+  return prisma.dataset.findUnique({
+    where: {
+      id: datasetId,
+    },
+    include: {
+      versions: {
+        orderBy: {
+          versionNumber: 'desc',
+        },
+        take: 1,
+        include: {
+          columns: {
+            orderBy: {
+              ordinal: 'asc',
+            },
+            include: {
+              classifications: {
+                orderBy: {
+                  appliedAt: 'desc',
+                },
+                take: 1,
+                include: {
+                  classificationLabel: true,
+                },
+              },
+            },
+          },
+          qualityRuns: {
+            orderBy: {
+              createdAt: 'desc',
+            },
+            take: 1,
+            include: {
+              issues: {
+                orderBy: {
+                  createdAt: 'asc',
+                },
+                include: {
+                  qualityRule: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
 module.exports = {
   createDatasetWithVersion,
   findDatasetWithLatestVersion,
+  findDatasetWithLatestVersionQualityContext,
 };
