@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { getDashboardDatasets } from '../services/datasetService';
 import { buildDatasetDetailsPath } from '../utils/routes';
+import { formatEnumLabel } from '../utils/labels';
 
 const SORT_OPTIONS = [
   { value: 'updatedAt', label: 'Updated' },
@@ -402,7 +403,7 @@ export default function DashboardPage() {
                         <span className="dataset-cell__meta">{row.dataset.slug}</span>
 
                         <div className="dataset-cell__tags">
-                          <span className="tag">{row.dataset.sourceType}</span>
+                          <span className="tag">{formatEnumLabel(row.dataset.sourceType)}</span>
                           <span className="tag">{row.dataset.criticality}</span>
                         </div>
                       </div>

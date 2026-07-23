@@ -5,6 +5,7 @@ import {
   overrideColumnClassification,
   trackDatasetView,
 } from '../services/datasetService';
+import { formatEnumLabel } from '../utils/labels';
 
 const trackedViews = new Map();
 const TRACK_SUPPRESSION_WINDOW_MS = 5000;
@@ -374,10 +375,10 @@ export default function DatasetDetailsPage() {
           </p>
           {details ? (
             <div className="dataset-details__meta">
-              <span className="tag">{details.dataset.sourceType}</span>
+              <span className="tag">{formatEnumLabel(details.dataset.sourceType)}</span>
               <span className="tag">{details.dataset.criticality}</span>
               <span className="tag">Version {details.version.versionNumber}</span>
-              <span className="tag">{details.version.fileFormat}</span>
+              <span className="tag">{formatEnumLabel(details.version.fileFormat)}</span>
             </div>
           ) : null}
         </div>

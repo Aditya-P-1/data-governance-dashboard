@@ -21,8 +21,8 @@ npm install
 
 2. Create environment files.
 
-- Copy [backend/.env.example](/Users/developer/Desktop/Test Task/Data-Governance/backend/.env.example) to `backend/.env`
-- Copy [frontend/.env.example](/Users/developer/Desktop/Test Task/Data-Governance/frontend/.env.example) to `frontend/.env`
+- Copy [backend/.env.example](Data-Governance/backend/.env.example) to `backend/.env`
+- Copy [frontend/.env.example](Data-Governance/frontend/.env.example) to `frontend/.env`
 
 3. Start the app.
 
@@ -102,18 +102,18 @@ Set these in Render:
 
 ### Example files added
 
-- [frontend/.env.example](/Users/developer/Desktop/Test Task/Data-Governance/frontend/.env.example)
-- [backend/.env.example](/Users/developer/Desktop/Test Task/Data-Governance/backend/.env.example)
+- [frontend/.env.example](Data-Governance/frontend/.env.example)
+- [backend/.env.example](Data-Governance/backend/.env.example)
 
 ## Deployment
 
 ### Vercel frontend
 
-The frontend includes [frontend/vercel.json](/Users/developer/Desktop/Test Task/Data-Governance/frontend/vercel.json) so client-side routes work on refresh.
+The frontend includes [frontend/vercel.json](Data-Governance/frontend/vercel.json) so client-side routes work on refresh.
 
 ### Render backend
 
-The backend includes [render.yaml](/Users/developer/Desktop/Test Task/Data-Governance/render.yaml) with:
+The backend includes [render.yaml](Data-Governance/render.yaml) with:
 
 - Node web service
 - `healthCheckPath: /health`
