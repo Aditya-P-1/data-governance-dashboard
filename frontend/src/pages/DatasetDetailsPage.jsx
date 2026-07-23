@@ -1,6 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getDatasetDetails } from '../services/datasetService';
+import { getDatasetDetails, trackDatasetView } from '../services/datasetService';
+
+const trackedViews = new Map();
+const TRACK_SUPPRESSION_WINDOW_MS = 5000;
+
+function shouldTrackDatasetView(currentDatasetId) {
+  const lastTrackedAt = trackedViews.get(currentDatasetId);
+  const now = Date.now();
+
+  if (lastTrackedAt && now - lastTrackedAt < TRACK_SUPPRESSION_WINDOW_MS) {
+    return false;
+  }
+
+  trackedViews.set(currentDatasetId, now);
+  return true;
+}
 
 function formatNumber(value) {
   return new Intl.NumberFormat('en-US').format(Number(value || 0));
@@ -94,6 +109,35 @@ export default function DatasetDetailsPage() {
 
         if (!cancelled) {
           setDetails(response);
+          if (datasetId && shouldTrackDatasetView(datasetId)) {
+            void trackDatasetView(datasetId)
+              .then(trackResponse => {
+                if (cancelled || !trackResponse) {
+                  return;
+                }
+
+                setDetails(currentDetails =>
+                  currentDetails
+                    ? {
+                        ...currentDetails,
+                        metrics: {
+                          ...currentDetails.metrics,
+                          views: trackResponse.usage.viewCount,
+                          value: trackResponse.valueScore.snapshot.overallScore,
+                        },
+                      }
+                    : currentDetails,
+                );
+              })
+              .catch(() => {
+                trackedViews.delete(datasetId);
+              })
+              .finally(() => {
+                window.setTimeout(() => {
+                  trackedViews.delete(datasetId);
+                }, TRACK_SUPPRESSION_WINDOW_MS);
+              });
+          }
         }
       } catch (loadError) {
         if (!cancelled) {
