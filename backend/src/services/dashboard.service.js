@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma');
 const { findDatasetsForDashboard } = require('../repositories/dataset.repository');
+const { buildValueAssessment } = require('../utils/valueScore.utils');
 
 const SENSITIVE_LEVELS = new Set(['CONFIDENTIAL', 'RESTRICTED']);
 const DEFAULT_PAGE = 1;
@@ -82,7 +83,17 @@ function getDatasetUsageStats(datasetId, usageMap) {
   return usageMap.get(datasetId) || {
     viewCount: 0,
     lastViewedAt: null,
+    viewsLast30Days: 0,
   };
+}
+
+function getDaysSinceLastViewed(lastViewedAt) {
+  if (!lastViewedAt) {
+    return null;
+  }
+
+  const diffMs = Date.now() - new Date(lastViewedAt).getTime();
+  return Math.max(0, diffMs / (1000 * 60 * 60 * 24));
 }
 
 function compareNullableNumbers(left, right, direction) {
@@ -114,6 +125,12 @@ function buildDatasetRow(dataset, usageMap) {
   const trustSnapshot = version?.trustScores?.[0] || null;
   const valueSnapshot = version?.valueScores?.[0] || null;
   const usageStats = getDatasetUsageStats(dataset.id, usageMap);
+  const valueAssessment = buildValueAssessment({
+    overallScore: valueSnapshot ? Number(valueSnapshot.overallScore) : null,
+    viewCount: usageStats.viewCount,
+    viewsLast30Days: usageStats.viewsLast30Days,
+    daysSinceLastViewed: getDaysSinceLastViewed(usageStats.lastViewedAt),
+  });
 
   const rows = toNumber(version?.rowCount, 0);
   const columnsCount = toNumber(version?.columnCount, columns.length);
@@ -149,6 +166,7 @@ function buildDatasetRow(dataset, usageMap) {
       quality: toNullableNumber(qualityRun?.qualityScore),
       trust: toNullableNumber(trustSnapshot?.overallScore),
       value: toNullableNumber(valueSnapshot?.overallScore),
+      valueAssessment,
       views: usageStats.viewCount,
       lastViewedAt: usageStats.lastViewedAt,
       sensitiveColumns,
@@ -195,24 +213,50 @@ async function getDashboardDatasets(query = {}) {
 
   const datasets = await findDatasetsForDashboard({ search });
   const datasetIds = datasets.map(dataset => dataset.id);
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const usageSummary = datasetIds.length
-    ? await prisma.usageEvent.groupBy({
-        by: ['datasetId'],
-        where: {
-          datasetId: {
-            in: datasetIds,
+  const [usageSummary, recentUsageSummary] = datasetIds.length
+    ? await Promise.all([
+        prisma.usageEvent.groupBy({
+          by: ['datasetId'],
+          where: {
+            datasetId: {
+              in: datasetIds,
+            },
+            eventType: 'VIEW',
           },
-          eventType: 'VIEW',
-        },
-        _count: {
-          _all: true,
-        },
-        _max: {
-          occurredAt: true,
-        },
-      })
-    : [];
+          _count: {
+            _all: true,
+          },
+          _max: {
+            occurredAt: true,
+          },
+        }),
+        prisma.usageEvent.groupBy({
+          by: ['datasetId'],
+          where: {
+            datasetId: {
+              in: datasetIds,
+            },
+            eventType: 'VIEW',
+            occurredAt: {
+              gte: thirtyDaysAgo,
+            },
+          },
+          _count: {
+            _all: true,
+          },
+        }),
+      ])
+    : [[], []];
+
+  const recentUsageMap = new Map(
+    recentUsageSummary.map(row => [
+      row.datasetId,
+      row._count._all,
+    ]),
+  );
 
   const usageMap = new Map(
     usageSummary.map(row => [
@@ -220,6 +264,7 @@ async function getDashboardDatasets(query = {}) {
       {
         viewCount: row._count._all,
         lastViewedAt: row._max.occurredAt,
+        viewsLast30Days: recentUsageMap.get(row.datasetId) || 0,
       },
     ]),
   );

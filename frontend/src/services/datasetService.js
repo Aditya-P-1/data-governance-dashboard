@@ -14,3 +14,8 @@ export async function trackDatasetView(datasetId) {
   const response = await apiClient.post(`/datasets/${datasetId}/track-view`);
   return response.data.data;
 }
+
+export async function overrideColumnClassification(datasetId, payload) {
+  const response = await apiClient.post(`/datasets/${datasetId}/classifications/override`, payload);
+  return response.data.data;
+}

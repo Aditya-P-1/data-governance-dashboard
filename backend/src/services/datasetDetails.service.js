@@ -2,6 +2,7 @@ const prisma = require('../config/prisma');
 const AppError = require('../utils/AppError');
 const { findDatasetWithLatestVersionDetails } = require('../repositories/dataset.repository');
 const { getDatasetViewStats } = require('../repositories/usage.repository');
+const { buildValueAssessment } = require('../utils/valueScore.utils');
 
 function roundPercent(value) {
   return Number(value.toFixed(2));
@@ -27,6 +28,15 @@ function getLatestClassification(column) {
   return Array.isArray(column?.classifications) && column.classifications.length > 0
     ? column.classifications[0]
     : null;
+}
+
+function getDaysSinceLastViewed(lastViewedAt) {
+  if (!lastViewedAt) {
+    return null;
+  }
+
+  const diffMs = Date.now() - new Date(lastViewedAt).getTime();
+  return Math.max(0, diffMs / (1000 * 60 * 60 * 24));
 }
 
 function buildQualityIssueMaps(qualityRun) {
@@ -145,6 +155,12 @@ async function getDatasetDetails(datasetId) {
   const columns = version.columns.map(column => buildColumnMetrics(column, rowCount, qualityMaps));
   const usageStats = await getDatasetViewStats(prisma, dataset.id);
   const sensitiveColumns = getSensitiveColumnCount(version.columns);
+  const valueAssessment = buildValueAssessment({
+    overallScore: valueScore ? Number(valueScore.overallScore) : null,
+    viewCount: usageStats.viewCount,
+    viewsLast30Days: usageStats.viewsLast30Days,
+    daysSinceLastViewed: getDaysSinceLastViewed(usageStats.lastViewedAt),
+  });
 
   return {
     dataset: {
@@ -178,6 +194,7 @@ async function getDatasetDetails(datasetId) {
         : Number(qualityRun.qualityScore),
       trust: trustScore ? Number(trustScore.overallScore) : null,
       value: valueScore ? Number(valueScore.overallScore) : null,
+      valueAssessment,
       views: usageStats.viewCount,
       lastViewedAt: usageStats.lastViewedAt,
       sensitiveColumns,

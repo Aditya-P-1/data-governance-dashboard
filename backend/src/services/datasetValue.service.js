@@ -56,6 +56,7 @@ function buildValueResponse({
         calculatedAt: snapshot.calculatedAt,
       },
       inputs: valueBreakdown,
+      assessment: valueBreakdown.assessment,
     },
   };
 }

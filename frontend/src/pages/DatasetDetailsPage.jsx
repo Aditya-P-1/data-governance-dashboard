@@ -1,9 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getDatasetDetails, trackDatasetView } from '../services/datasetService';
+import {
+  getDatasetDetails,
+  overrideColumnClassification,
+  trackDatasetView,
+} from '../services/datasetService';
 
 const trackedViews = new Map();
 const TRACK_SUPPRESSION_WINDOW_MS = 5000;
+const CLASSIFICATION_OVERRIDE_OPTIONS = [
+  { code: 'EMAIL', label: 'Email' },
+  { code: 'PHONE', label: 'Phone' },
+  { code: 'NAME', label: 'Name' },
+  { code: 'GOVERNMENT_ID', label: 'Government ID' },
+  { code: 'ADDRESS', label: 'Address' },
+  { code: 'DATE_OF_BIRTH', label: 'Date of Birth' },
+];
 
 function shouldTrackDatasetView(currentDatasetId) {
   const lastTrackedAt = trackedViews.get(currentDatasetId);
@@ -91,6 +103,118 @@ function BoolPill({ value, labelTrue = 'Yes', labelFalse = 'No' }) {
   );
 }
 
+function ValueAssessmentPanel({ assessment, score, views, lastViewedAt }) {
+  if (!assessment?.label) {
+    return null;
+  }
+
+  return (
+    <article className={`value-advisory value-advisory--${assessment.tone || 'neutral'}`}>
+      <div className="value-advisory__header">
+        <div>
+          <p className="card__label">Value advisory</p>
+          <h2 className="value-advisory__title">{assessment.label}</h2>
+        </div>
+        <span className={`assessment-pill assessment-pill--${assessment.tone || 'neutral'}`}>
+          {formatScore(score)}
+        </span>
+      </div>
+
+      <p className="value-advisory__body">{assessment.recommendation}</p>
+
+      <div className="value-advisory__meta">
+        <span className="tag">Views {formatNumber(views)}</span>
+        <span className="tag">Last viewed {formatDate(lastViewedAt)}</span>
+      </div>
+    </article>
+  );
+}
+
+function ManualOverrideControl({ datasetId, column, onOverride }) {
+  const [selectedCode, setSelectedCode] = useState(column.classification?.code || '');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setSelectedCode(column.classification?.code || '');
+    setMessage('');
+    setError('');
+  }, [column.classification?.code, column.id]);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+
+    if (!selectedCode) {
+      setError('Choose a label before applying the override.');
+      return;
+    }
+
+    setLoading(true);
+    setMessage('');
+    setError('');
+
+    try {
+      const response = await overrideColumnClassification(datasetId, {
+        datasetColumnId: column.id,
+        classificationLabelCode: selectedCode,
+        rationale: 'Manual override applied from the dataset details page.',
+      });
+
+      onOverride(response);
+      setMessage(`Updated to ${response.assignment?.label?.name || selectedCode}.`);
+    } catch (overrideError) {
+      setError(
+        overrideError?.response?.data?.error?.message || 'Failed to update the classification.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <form className="override-control" onSubmit={handleSubmit}>
+      <label className="field override-control__field">
+        <span className="field__label">Manual override</span>
+        <select
+          className="input"
+          value={selectedCode}
+          onChange={event => setSelectedCode(event.target.value)}
+        >
+          <option value="">Choose a label</option>
+          {CLASSIFICATION_OVERRIDE_OPTIONS.map(option => (
+            <option key={option.code} value={option.code}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div className="override-control__actions">
+        <button className="button button--secondary" type="submit" disabled={loading}>
+          {loading ? 'Saving...' : 'Apply override'}
+        </button>
+        <span className="override-control__hint">
+          Current tag: {column.classification ? column.classification.code : 'Unclassified'}
+        </span>
+      </div>
+
+      {message ? <p className="override-control__message override-control__message--success">{message}</p> : null}
+      {error ? <p className="override-control__message override-control__message--error">{error}</p> : null}
+    </form>
+  );
+}
+
+function getSensitiveColumnCount(columns) {
+  return columns.reduce((count, column) => {
+    if (column?.classification?.level === 'CONFIDENTIAL' || column?.classification?.level === 'RESTRICTED') {
+      return count + 1;
+    }
+
+    return count;
+  }, 0);
+}
+
 export default function DatasetDetailsPage() {
   const { datasetId } = useParams();
   const [details, setDetails] = useState(null);
@@ -158,6 +282,45 @@ export default function DatasetDetailsPage() {
     };
   }, [datasetId]);
 
+  function handleClassificationOverride(result) {
+    setDetails(currentDetails => {
+      if (!currentDetails) {
+        return currentDetails;
+      }
+
+      const updatedColumns = currentDetails.columns.map(column => {
+        if (column.id !== result.column.id) {
+          return column;
+        }
+
+        return {
+          ...column,
+          classification: result.classification
+            ? {
+                ...result.classification,
+                source: result.assignment?.source || 'MANUAL',
+                appliedAt: result.assignment?.appliedAt || column.classification?.appliedAt || null,
+              }
+            : null,
+          manualOverride: {
+            enabled: true,
+            rationale: result.assignment?.rationale || null,
+            appliedAt: result.assignment?.appliedAt || null,
+          },
+        };
+      });
+
+      return {
+        ...currentDetails,
+        columns: updatedColumns,
+        metrics: {
+          ...currentDetails.metrics,
+          sensitiveColumns: getSensitiveColumnCount(updatedColumns),
+        },
+      };
+    });
+  }
+
   const summaryCards = useMemo(() => {
     if (!details) {
       return [];
@@ -187,7 +350,7 @@ export default function DatasetDetailsPage() {
       {
         label: 'Value',
         value: formatScore(details.metrics.value),
-        note: 'Latest value snapshot',
+        note: details.metrics.valueAssessment?.label || 'Latest value snapshot',
       },
       {
         label: 'Sensitive Columns',
@@ -235,6 +398,13 @@ export default function DatasetDetailsPage() {
           <MetricCard key={card.label} {...card} />
         ))}
       </div>
+
+      <ValueAssessmentPanel
+        assessment={details?.metrics?.valueAssessment}
+        score={details?.metrics?.value}
+        views={details?.metrics?.views}
+        lastViewedAt={details?.metrics?.lastViewedAt}
+      />
 
       {error ? (
         <div className="empty-state">
@@ -304,6 +474,11 @@ export default function DatasetDetailsPage() {
                       ) : (
                         <span className="flag-pill">Unclassified</span>
                       )}
+                      <ManualOverrideControl
+                        datasetId={datasetId}
+                        column={column}
+                        onOverride={handleClassificationOverride}
+                      />
                     </td>
                     <td>{formatPercent(column.qualityMetrics.missingPercent)}</td>
                     <td>{formatPercent(column.qualityMetrics.invalidPercent)}</td>

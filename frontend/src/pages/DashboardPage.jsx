@@ -76,6 +76,21 @@ function ScorePill({ value }) {
   return <span className={`score-pill score-pill--${tone}`}>{formatScore(value)}</span>;
 }
 
+function ActivityPill({ value }) {
+  if (!value?.label) {
+    return <span className="assessment-pill assessment-pill--neutral">—</span>;
+  }
+
+  return (
+    <span
+      className={`assessment-pill assessment-pill--${value.tone || 'neutral'}`}
+      title={value.recommendation || value.label}
+    >
+      {value.label}
+    </span>
+  );
+}
+
 export default function DashboardPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState(searchParams.get('q') || '');
@@ -405,7 +420,15 @@ export default function DashboardPage() {
                     </td>
 
                     <td>
-                      <ScorePill value={row.metrics.value} />
+                      <div className="dataset-cell">
+                        <ScorePill value={row.metrics.value} />
+                        <ActivityPill value={row.metrics.valueAssessment} />
+                        {row.metrics.valueAssessment?.recommendation ? (
+                          <span className="dataset-cell__meta dataset-cell__meta--advisory">
+                            {row.metrics.valueAssessment.recommendation}
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
 
                     <td>{formatNumber(row.metrics.views)}</td>
